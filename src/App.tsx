@@ -3,8 +3,12 @@ import CameraFeed from './components/CameraFeed';
 import Speedometer from './components/Speedometer';
 import AlertSystem from './components/AlertSystem';
 import RouteMap from './components/RouteMap';
+import MapWrapper from './components/MapWrapper';
 import SystemHeader from './components/SystemHeader';
-
+import Car from './components/Car';
+import BrakeComponent from './components/BrakeComponent';
+import BuzzerSiren from './components/BuzzerSiren';
+import SafetyTimer from './components/SafetyTimer';
 function App() {
   const [eyeOpenness, setEyeOpenness] = useState(100);
   const [faceDetected, setFaceDetected] = useState(false);
@@ -15,8 +19,8 @@ function App() {
   const [isConnected, setIsConnected] = useState(true);
 
   const calculateDrowsinessLevel = useCallback((openness: number) => {
-    if (openness <= 25) return 'critical';
-    if (openness <= 50) return 'drowsy';
+    if (openness <= 40) return 'critical';
+    if (openness <= 60) return 'drowsy';
     return 'normal';
   }, []);
 
@@ -24,7 +28,28 @@ function App() {
     const newLevel = calculateDrowsinessLevel(eyeOpenness);
     setDrowsinessLevel(newLevel);
   }, [eyeOpenness, calculateDrowsinessLevel]);
+  const [timerActive, setTimerActive] = useState(false);
 
+useEffect(() => {
+  if (drowsinessLevel === 'critical') {
+    setTimerActive(true); // start timer when driver is critical
+  } else {
+    setTimerActive(false);
+  }
+}, [drowsinessLevel]);
+
+const handleEmergencyCall = () => {
+  console.log("🚨 Emergency call triggered!");
+  // You can integrate actual call API or alert logic here
+};
+
+const handleTimerStop = () => {
+  console.log("Timer stopped by user.");
+};
+
+const handleTimerReset = () => {
+  console.log("Timer reset.");
+};
   useEffect(() => {
     let targetSpeed = maxSpeed;
     
@@ -48,7 +73,6 @@ function App() {
     return () => clearInterval(interval);
   }, [drowsinessLevel, maxSpeed]);
 
-  // Update ETA based on speed changes
   useEffect(() => {
     const baseETA = new Date();
     baseETA.setHours(baseETA.getHours() + 2);
@@ -63,7 +87,6 @@ function App() {
     setEta(baseETA.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   }, [drowsinessLevel]);
 
-  // Handle eye openness updates from camera
   const handleEyeOpenness = useCallback((openness: number) => {
     setEyeOpenness(openness);
   }, []);
@@ -85,7 +108,7 @@ function App() {
       
       <div className="container mx-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-          {/* Left Column - Camera and Alerts */}
+          {/* Left Panel */}
           <div className="space-y-6">
             <div className="bg-gray-800 rounded-lg p-4">
               <h2 className="text-white font-semibold mb-4 flex items-center space-x-2">
@@ -105,30 +128,40 @@ function App() {
               eta={eta}
             />
           </div>
-
-          {/* Center Column - Speedometer */}
-          <div className="flex items-center justify-center">
-            <div className="bg-gray-800 rounded-lg p-8">
+          <div className="flex flex-col gap-4">
+                <BuzzerSiren 
+                  isActive={drowsinessLevel === 'critical'}
+                  emergencyLevel={drowsinessLevel}
+                />
+                <BrakeComponent 
+                  currentSpeed={currentSpeed}
+                  drowsinessLevel={drowsinessLevel}
+                />
+                <SafetyTimer
+                  isActive={timerActive}
+                  onEmergencyCall={handleEmergencyCall}
+                  onTimerStop={handleTimerStop}
+                  onTimerReset={handleTimerReset}
+                />
+          </div>
+          {/* Middle Panel */}
+          <div className="flex flex-col items-center justify-center">
+            <div className="bg-gray-800 rounded-lg p-8 mb-4">
               <Speedometer 
                 currentSpeed={currentSpeed}
                 maxSpeed={maxSpeed}
                 drowsinessLevel={drowsinessLevel}
               />
             </div>
-          </div>
-
-          {/* Right Column - Route and Map */}
-          <div>
-            <RouteMap 
-              currentSpeed={currentSpeed}
-              drowsinessLevel={drowsinessLevel}
-              eta={eta}
-            />
+            <Car drowsinessLevel={drowsinessLevel} />
           </div>
         </div>
       </div>
-      
-      {/* Footer Stats */}
+      <div>
+        <div>
+          <MapWrapper/>
+        </div>
+      </div>
       <div className="bg-gray-800 border-t border-gray-700 px-6 py-4 mt-6">
         <div className="grid grid-cols-4 gap-6 text-center">
           <div>
@@ -154,6 +187,11 @@ function App() {
             <div className="text-xs text-gray-400">Safety Status</div>
           </div>
         </div>
+      </div>
+
+      {/* Car below status bar */}
+      <div className="flex justify-center py-6">
+        
       </div>
     </div>
   );

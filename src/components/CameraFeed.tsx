@@ -176,6 +176,10 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ onEyeOpenness, onFaceDetected }
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Smoothed eye openness
+  const [smoothedOpenness, setSmoothedOpenness] = useState(100);
+  const smoothingFactor = 0.2; // adjust between 0.1-0.3 for smoother/faster response
+
   useEffect(() => {
     let faceMesh: FaceMesh | null = null;
     let camera: Camera | null = null;
@@ -218,7 +222,7 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ onEyeOpenness, onFaceDetected }
             const leftEyeIndices = [33, 133, 160, 159, 158, 157, 173, 144, 145, 153, 154, 155];
             const rightEyeIndices = [263, 362, 387, 386, 385, 384, 398, 373, 374, 380, 381, 382];
 
-            // Draw left eye outline
+            // Draw left eye
             ctx.strokeStyle = 'lime';
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -227,17 +231,14 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ onEyeOpenness, onFaceDetected }
               if (point) {
                 const x = point.x * canvas.width;
                 const y = point.y * canvas.height;
-                if (i === 0) {
-                  ctx.moveTo(x, y);
-                } else {
-                  ctx.lineTo(x, y);
-                }
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
               }
             });
             ctx.closePath();
             ctx.stroke();
 
-            // Draw right eye outline
+            // Draw right eye
             ctx.strokeStyle = 'cyan';
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -246,11 +247,8 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ onEyeOpenness, onFaceDetected }
               if (point) {
                 const x = point.x * canvas.width;
                 const y = point.y * canvas.height;
-                if (i === 0) {
-                  ctx.moveTo(x, y);
-                } else {
-                  ctx.lineTo(x, y);
-                }
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
               }
             });
             ctx.closePath();
@@ -263,13 +261,18 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ onEyeOpenness, onFaceDetected }
               const avgEyeHeight = (leftEyeHeight + rightEyeHeight) / 2;
 
               const refDistance = Math.abs(landmarks[362].x - landmarks[133].x);
-
               const normalizedOpenness = avgEyeHeight / refDistance;
-              const eyeOpenness = Math.min(100, Math.max(0, normalizedOpenness * 500));
-              onEyeOpenness(eyeOpenness);
+              const rawOpenness = Math.min(100, Math.max(0, normalizedOpenness * 500));
+
+              // Exponential smoothing
+              const newSmoothed = smoothedOpenness + (rawOpenness - smoothedOpenness) * smoothingFactor;
+              setSmoothedOpenness(newSmoothed);
+
+              onEyeOpenness(newSmoothed);
             }
           } else {
             onFaceDetected(false);
+            setSmoothedOpenness(0);
             onEyeOpenness(0);
           }
         });
@@ -300,11 +303,9 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ onEyeOpenness, onFaceDetected }
 
     return () => {
       if (camera) camera.stop();
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      if (stream) stream.getTracks().forEach(track => track.stop());
     };
-  }, [onEyeOpenness, onFaceDetected]);
+  }, [onEyeOpenness, onFaceDetected, smoothedOpenness]);
 
   if (error) {
     return (
